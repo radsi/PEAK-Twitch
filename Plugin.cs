@@ -84,8 +84,7 @@ namespace Twitch
         {
             string user = e.ChatMessage.Username;
             string msg = e.ChatMessage.Message;
-
-            int bits = ExtractBits(e.ChatMessage.RawIrcMessage);
+            int bits = e.ChatMessage.Bits;
 
             if (bits > 0 && Character.localCharacter != null)
             {
@@ -141,12 +140,6 @@ namespace Twitch
                     Character.localCharacter.refs.items.GetType().GetMethod("SpawnItemInHand", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).Invoke(Character.localCharacter, new object[] { "Big Lollipop" });
                 }
             }
-        }
-
-        private int ExtractBits(string rawIrc)
-        {
-            var match = Regex.Match(rawIrc, @"bits=(\d+)");
-            return match.Success && int.TryParse(match.Groups[1].Value, out int bits) ? bits : 0;
         }
     }
 }
