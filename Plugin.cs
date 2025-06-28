@@ -1,12 +1,7 @@
-﻿using BepInEx;
+using BepInEx;
 using BepInEx.Logging;
 using System;
-using System.IO;
-using System.Net.Sockets;
-using System.Text;
-using System.Threading;
 using System.Text.RegularExpressions;
-using System.Net;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Net.Http;
@@ -15,10 +10,7 @@ using BepInEx.Configuration;
 using TwitchLib.Client.Events;
 using TwitchLib.Client.Models;
 using TwitchLib.Client;
-using HarmonyLib;
-using Photon.Pun;
 using System.Reflection;
-using TwitchLib.Api.Helix.Models.Soundtrack;
 
 namespace Twitch
 {
