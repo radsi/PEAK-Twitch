@@ -2,9 +2,6 @@ using BepInEx;
 using BepInEx.Logging;
 using System;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using System.Net.Http;
 using UnityEngine;
 using BepInEx.Configuration;
 using TwitchLib.Client.Events;
@@ -18,7 +15,6 @@ namespace Twitch
     public class Plugin : BaseUnityPlugin
     {
         public static ConfigEntry<string> user;
-        public static ConfigEntry<string> oauth;
         public static ConfigEntry<int> bitsToKill;
         public static ConfigEntry<int> bitsToPassout;
         public static ConfigEntry<int> bitsToPush;
@@ -30,12 +26,9 @@ namespace Twitch
         public static ConfigEntry<int> bitsToGivelollipop;
         public MyTwitchBot bot;
 
-        private string clientId = "gdjyhvlyot8gtw2c4ter1ezq9xc6se";
-
         public void Awake()
         {
             user = Config.Bind("Twitch", "User", "username", "Twitch user");
-            oauth = Config.Bind("Twitch", "OAuth", "oauth:token", "OAuth token");
             bitsToKill = Config.Bind("Bits", "Kill", 1000, "Bits to kill player");
             bitsToPassout = Config.Bind("Bits", "Pass out", 250, "Bits to pass out player");
             bitsToPush = Config.Bind("Bits", "Push", 400, "Bits to push player");
@@ -46,139 +39,10 @@ namespace Twitch
             bitsToCrashgame = Config.Bind("Bits", "Crash game", 2000, "Bits to crash game");
             bitsToGivelollipop = Config.Bind("Bits", "Give lollipop", 500, "Bits to give lollipop");
 
-            Logger.LogInfo($"OAuth token currently: {oauth.Value}");
-
-            if (oauth.Value.Length < 20)
-            {
-                Logger.LogInfo("OAuth token not found or invalid, starting Device Code Grant flow");
-                Task.Run(async () =>
-                {
-                    try
-                    {
-                        string token = await RunDeviceCodeFlowAsync();
-                        if (!string.IsNullOrEmpty(token))
-                        {
-                            oauth.Value = "oauth:" + token;
-                            Config.Save();
-                            Logger.LogInfo("OAuth token granted and saved.");
-                        }
-                        else
-                        {
-                            Logger.LogError("Failed to obtain OAuth token.");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogError($"Exception during OAuth flow: {ex}");
-                    }
-
-                    ConnectBot();
-                });
-            }
-            else
-            {
-                Logger.LogInfo("OAuth token found, connecting bot directly");
-                ConnectBot();
-            }
-        }
-
-        private void ConnectBot()
-        {
             Logger.LogInfo("Connecting Twitch bot...");
             bot = new MyTwitchBot(user.Value.ToLowerInvariant(), Logger);
             bot.Connect();
         }
-
-        private async Task<string> RunDeviceCodeFlowAsync()
-        {
-            Logger.LogInfo("Starting Twitch Device Code Flow");
-
-            using (HttpClient httpClient = new HttpClient())
-            {
-                var deviceCodeRequest = new Dictionary<string, string>
-                {
-                    { "client_id", clientId },
-                    { "scope", "chat:read" }
-                };
-
-                var content = new FormUrlEncodedContent(deviceCodeRequest);
-
-                var response = await httpClient.PostAsync("https://id.twitch.tv/oauth2/device", content);
-                if (!response.IsSuccessStatusCode)
-                {
-                    Logger.LogError($"Error requesting device code: {response.StatusCode}");
-                    return null;
-                }
-
-                var responseBody = await response.Content.ReadAsStringAsync();
-                var deviceCodeResponse = JsonUtility.FromJson<DeviceCodeResponse>(responseBody);
-
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = deviceCodeResponse.verification_uri,
-                    UseShellExecute = true
-                });
-
-                await Task.Delay(TimeSpan.FromSeconds(30));
-
-                while (true)
-                {
-                    try
-                    {
-                        var tokenRequest = new Dictionary<string, string>
-                        {
-                            { "client_id", clientId },
-                            { "device_code", deviceCodeResponse.device_code },
-                            { "grant_type", "urn:ietf:params:oauth:grant-type:device_code" }
-                        };
-
-                        var tokenContent = new FormUrlEncodedContent(tokenRequest);
-                        var tokenResponse = await httpClient.PostAsync("https://id.twitch.tv/oauth2/token", tokenContent);
-                        var tokenResponseBody = await tokenResponse.Content.ReadAsStringAsync();
-
-                        if (tokenResponse.IsSuccessStatusCode)
-                        {
-                            var tokenObj = JsonUtility.FromJson<TwitchTokenResponse>(tokenResponseBody);
-                            Logger.LogInfo("Authorization complete, token obtained.");
-                            return tokenObj.access_token;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogWarning($"Exception during token polling: {ex.Message}");
-                        return null;
-                    }
-                }
-            }
-        }
-
-        [Serializable]
-        class DeviceCodeResponse
-        {
-            public string device_code;
-            public string user_code;
-            public string verification_uri;
-            public int expires_in;
-            public int interval;
-        }
-
-        [Serializable]
-        class DeviceCodeErrorResponse
-        {
-            public string error;
-            public string error_description;
-        }
-
-        [Serializable]
-        class TwitchTokenResponse
-        {
-            public string access_token;
-            public string refresh_token;
-            public int expires_in;
-            public string[] scope;
-            public string token_type;
-        }
-
         public void OnDestroy()
         {
             bot?.Disconnect();
@@ -199,14 +63,10 @@ namespace Twitch
 
         public void Connect()
         {
-            var credentials = new ConnectionCredentials(Plugin.user.Value, Plugin.oauth.Value.Replace("oauth:", ""));
+            var credentials = new ConnectionCredentials("JustinFan0", "Kappa");
             client = new TwitchClient();
             client.Initialize(credentials, channel);
 
-            client.OnLog += (s, e) => logger.LogInfo($"[TwitchLib] {e.Data}");
-            client.OnConnected += (s, e) => logger.LogInfo($"Connected to {e.AutoJoinChannel}");
-            client.OnJoinedChannel += (s, e) => logger.LogInfo($"Joined channel {e.Channel}");
-            client.OnDisconnected += (s, e) => logger.LogInfo("Disconnected from Twitch");
             client.OnMessageReceived += OnMessageReceived;
 
             client.Connect();
@@ -224,7 +84,8 @@ namespace Twitch
         {
             string user = e.ChatMessage.Username;
             string msg = e.ChatMessage.Message;
-            int bits = ExtractBits(msg);
+
+            int bits = ExtractBits(e.ChatMessage.RawIrcMessage);
 
             if (bits > 0 && Character.localCharacter != null)
             {
@@ -282,9 +143,9 @@ namespace Twitch
             }
         }
 
-        private int ExtractBits(string message)
+        private int ExtractBits(string rawIrc)
         {
-            var match = Regex.Match(message, @"cheer(\d+)", RegexOptions.IgnoreCase);
+            var match = Regex.Match(rawIrc, @"bits=(\d+)");
             return match.Success && int.TryParse(match.Groups[1].Value, out int bits) ? bits : 0;
         }
     }
