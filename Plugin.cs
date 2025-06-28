@@ -232,12 +232,6 @@ namespace Twitch
         {
             string user = e.ChatMessage.Username;
             string msg = e.ChatMessage.Message;
-
-            if (msg == "!push")
-            {
-                
-            }
-
             int bits = ExtractBits(msg);
 
             if (bits > 0 && Character.localCharacter != null)
